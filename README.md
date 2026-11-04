@@ -2,11 +2,13 @@
 
 A web app that displays the Quran as a two-page mushaf spread on unfolded / dual-screen phones, and a single page when folded.
 
+- Landing page to pick a surah (searchable in Arabic or English) or continue where you left off
 - Same Uthmani script as [quran.com](https://quran.com): each of the 604 Madani mushaf pages is drawn with its own King Fahd Complex (QPC V2) font, on its original 15 lines
 - Two pages side by side when the screen is opened (odd page on the right, as in a printed mushaf); one page when folded
 - Supports the CSS Viewport Segments API so each page lines up with its side of a hinge/fold
 - Swipe or tap the edges to turn pages, arrow keys on a keyboard; tap the centre for surah/page navigation and display mode
-- Remembers your last page; `#p=50` links open a specific page
+- Remembers your last page; `read.html#p=50` links open a specific page
+- Home-screen icon for iPhone (Add to Home Screen) and Android
 
 ## Live
 

@@ -1,11 +1,19 @@
 {
   "name": "Quran Duo",
   "short_name": "Quran Duo",
+  "description": "Two-page Quran mushaf for unfolded phones",
   "start_url": "./",
-  "display": "fullscreen",
+  "scope": "./",
+  "display": "standalone",
   "orientation": "any",
-  "background_color": "#f6efdf",
+  "background_color": "#e9dfc6",
   "theme_color": "#f6efdf",
   "dir": "rtl",
-  "lang": "ar"
+  "lang": "ar",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
 }

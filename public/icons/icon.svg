@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="75%">
+      <stop offset="0" stop-color="#1c5a43"/>
+      <stop offset="1" stop-color="#0b2f23"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3d58a"/>
+      <stop offset="1" stop-color="#c9a24a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- eight-pointed star (two squares) -->
+  <g fill="#ffffff" fill-opacity="0.05" stroke="url(#gold)" stroke-width="10" stroke-linejoin="round">
+    <rect x="106" y="106" width="300" height="300" rx="6"/>
+    <rect x="106" y="106" width="300" height="300" rx="6" transform="rotate(45 256 256)"/>
+  </g>
+  <!-- open mushaf -->
+  <g stroke="url(#gold)" stroke-width="8" stroke-linejoin="round">
+    <path d="M256 206 C 222 186, 186 182, 152 188 L152 318 C 186 312, 222 316, 256 336 Z" fill="#fbf6e9"/>
+    <path d="M256 206 C 290 186, 326 182, 360 188 L360 318 C 326 312, 290 316, 256 336 Z" fill="#fbf6e9"/>
+  </g>
+  <g stroke="#c9a24a" stroke-width="6" stroke-linecap="round" opacity="0.85">
+    <path d="M174 222 C 196 218, 218 220, 238 228"/>
+    <path d="M174 248 C 196 244, 218 246, 238 254"/>
+    <path d="M174 274 C 196 270, 218 272, 238 280"/>
+    <path d="M274 228 C 294 220, 316 218, 338 222"/>
+    <path d="M274 254 C 294 246, 316 244, 338 248"/>
+    <path d="M274 280 C 294 272, 316 270, 338 274"/>
+  </g>
+</svg>

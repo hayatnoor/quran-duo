@@ -6,21 +6,10 @@
  * with its own King Fahd Complex (QPC V2) font, word-by-word glyphs, on the original 15 lines.
  * Data: api.quran.com (Quran Foundation). Fonts: static.qurancdn.com. */
 
-const API = 'https://api.quran.com/api/v4';
+const { API, TOTAL_PAGES, SURAH_START, store, toArabic, escapeHtml } = QD;
 const PAGE_FONT_URL = (n) => `https://static.qurancdn.com/fonts/quran/hafs/v2/woff2/p${n}.woff2`;
-const TOTAL_PAGES = 604;
 const LINES_PER_PAGE = 15;
 const BASMALA = 'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ';
-
-// First page of each surah in the Madani mushaf (index 0 = surah 1)
-const SURAH_START = [
-  1, 2, 50, 77, 106, 128, 151, 177, 187, 208, 221, 235, 249, 255, 262, 267, 282, 293, 305, 312,
-  322, 332, 342, 350, 359, 367, 377, 385, 396, 404, 411, 415, 418, 428, 434, 440, 446, 453, 458, 467,
-  477, 483, 489, 496, 499, 502, 507, 511, 515, 518, 520, 523, 526, 528, 531, 534, 537, 542, 545, 549,
-  551, 553, 554, 556, 558, 560, 562, 564, 566, 568, 570, 572, 574, 575, 577, 578, 580, 582, 583, 585,
-  586, 587, 587, 589, 590, 591, 591, 592, 593, 594, 595, 595, 596, 596, 597, 597, 598, 598, 599, 599,
-  600, 600, 601, 601, 601, 602, 602, 602, 603, 603, 603, 604, 604, 604,
-];
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -30,11 +19,6 @@ const els = {
   surah: $('surah-select'),
   pageInput: $('page-input'),
   modeBtn: $('mode-btn'),
-};
-
-const store = {
-  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
 };
 
 const state = {
@@ -49,13 +33,6 @@ const fontCache = new Map(); // page -> Promise<void>
 
 /* ---------------- helpers ---------------- */
 function clampPage(n) { return Math.min(TOTAL_PAGES, Math.max(1, Number.isFinite(n) ? n : 1)); }
-
-const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
-const toArabic = (n) => String(n).replace(/\d/g, (d) => AR_DIGITS[d]);
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
 
 const surahOf = (verseKey) => parseInt(verseKey.split(':')[0], 10);
 const chapterName = (id) => chapters[id - 1]?.ar || `سورة ${toArabic(id)}`;
@@ -122,19 +99,9 @@ function loadPageFont(n) {
 }
 
 async function loadChapters() {
-  try {
-    const cached = store.get('qd.chapters.v2', null);
-    chapters = cached ? JSON.parse(cached) : [];
-    if (!chapters.length) {
-      const j = await (await fetch(`${API}/chapters?language=ar`)).json();
-      chapters = j.chapters.map((c) => ({ id: c.id, ar: c.name_arabic, en: c.name_simple }));
-      store.set('qd.chapters.v2', JSON.stringify(chapters));
-    }
-  } catch {
-    chapters = SURAH_START.map((_, i) => ({ id: i + 1, ar: `سورة ${toArabic(i + 1)}`, en: '' }));
-  }
+  chapters = await QD.loadChapters();
   els.surah.innerHTML = chapters
-    .map((c) => `<option value="${c.id}">${toArabic(c.id)}. ${escapeHtml(c.ar)}${c.en ? ' — ' + escapeHtml(c.en) : ''}</option>`)
+    .map((c) => `<option value="${c.id}">${toArabic(c.id)}. ${escapeHtml(c.ar)} — ${escapeHtml(c.en)}</option>`)
     .join('');
   syncToolbar();
   // headers already on screen may have been drawn before names arrived
@@ -316,9 +283,7 @@ function prev() {
 
 function syncToolbar() {
   els.pageInput.value = state.page;
-  let s = 1;
-  for (let i = 0; i < SURAH_START.length; i++) if (SURAH_START[i] <= state.page) s = i + 1;
-  if (els.surah.options.length) els.surah.value = String(s);
+  if (els.surah.options.length) els.surah.value = String(QD.surahAtPage(state.page));
 }
 
 function toggleToolbar(show = els.toolbar.hidden) { els.toolbar.hidden = !show; }

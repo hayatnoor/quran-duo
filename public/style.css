@@ -1,36 +1,3 @@
-:root {
-  --paper: #fbf6e9;
-  --paper-edge: #efe4c8;
-  --bg: #e9dfc6;
-  --ink: #1d1a14;
-  --muted: #7a6a48;
-  --accent: #8a6a1f;
-  --frame: #b89a52;
-  --toolbar: rgba(251, 246, 233, 0.96);
-
-  /* gutters respect the notch / rounded corners when unfolded */
-  --safe-t: env(safe-area-inset-top, 0px);
-  --safe-r: env(safe-area-inset-right, 0px);
-  --safe-b: env(safe-area-inset-bottom, 0px);
-  --safe-l: env(safe-area-inset-left, 0px);
-  --hinge: 0px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #1f1b14;
-    --paper-edge: #2a241a;
-    --bg: #110f0b;
-    --ink: #efe6d0;
-    --muted: #b3a27a;
-    --accent: #d6b25e;
-    --frame: #6d5a2f;
-    --toolbar: rgba(31, 27, 20, 0.96);
-  }
-}
-
-* { box-sizing: border-box; }
-
 html, body {
   margin: 0;
   height: 100%;
@@ -123,19 +90,6 @@ body.dual #page-left  { border-radius: 2px 6px 6px 2px; box-shadow: inset -14px 
   border: 1px solid var(--frame);
   border-radius: 999px;
   padding: 0 .6em;
-}
-
-/* Fonts used by quran.com: surah-name ligatures + Uthmanic Hafs (KFGQPC) for the basmala.
-   Each mushaf page additionally gets its own QPC V2 font, loaded on demand from app.js. */
-@font-face {
-  font-family: "SurahNames";
-  src: url("https://static.qurancdn.com/fonts/quran/surah-names/v1/sura_names.woff2") format("woff2");
-  font-display: block;
-}
-@font-face {
-  font-family: "UthmanicHafs";
-  src: url("https://static.qurancdn.com/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.woff2") format("woff2");
-  font-display: block;
 }
 
 .body {
@@ -245,7 +199,7 @@ body.dual #page-left  { border-radius: 2px 6px 6px 2px; box-shadow: inset -14px 
   justify-content: center;
 }
 .toolbar[hidden] { display: none; }
-.toolbar select, .toolbar input, .toolbar button {
+.toolbar select, .toolbar input, .toolbar button, .toolbar .home-link {
   font: inherit;
   font-size: 16px; /* ≥16px prevents iOS zoom-on-focus */
   color: var(--ink);
@@ -258,3 +212,9 @@ body.dual #page-left  { border-radius: 2px 6px 6px 2px; box-shadow: inset -14px 
 .toolbar select { max-width: 52vw; }
 .toolbar input { width: 4.5em; text-align: center; }
 .page-jump { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+
+.toolbar .home-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}

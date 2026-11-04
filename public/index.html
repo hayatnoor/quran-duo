@@ -2,42 +2,58 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <!-- viewport-fit=cover lets us use the full unfolded screen and respect safe areas -->
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Quran Duo">
   <meta name="theme-color" content="#f6efdf" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#16130e" media="(prefers-color-scheme: dark)">
+  <meta name="description" content="Read the Quran as a two-page mushaf on unfolded phones. Pick a surah to start.">
   <title>Quran Duo</title>
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="landing.css">
 </head>
 <body>
-  <main id="spread" class="spread" aria-live="polite">
-    <article class="page" id="page-right"></article>
-    <div class="hinge" aria-hidden="true"></div>
-    <article class="page" id="page-left"></article>
+  <header class="hero">
+    <div class="brand">
+      <img src="icons/icon.svg" alt="" width="48" height="48">
+      <div>
+        <h1>Quran Duo</h1>
+        <p class="sub">القرآن الكريم · مصحف المدينة</p>
+      </div>
+    </div>
+
+    <a class="continue" id="continue" href="read.html" hidden>
+      <span class="continue-label">متابعة القراءة <span lang="en">· Continue reading</span></span>
+      <span class="continue-detail" id="continue-detail"></span>
+      <span class="continue-arrow" aria-hidden="true">‹</span>
+    </a>
+
+    <label class="search">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Zm5.3-2.2L21 21"/></svg>
+      <input id="search" type="search" placeholder="ابحث عن سورة · Search surah" autocomplete="off" aria-label="ابحث عن سورة">
+    </label>
+  </header>
+
+  <main>
+    <h2 class="section-title">السور <span lang="en">· Surahs</span></h2>
+    <ol class="surahs" id="surahs" aria-label="فهرس السور"></ol>
+    <p class="empty" id="empty" hidden>لا توجد نتائج <span lang="en">· No matching surah</span></p>
   </main>
 
-  <!-- tap zones: in an Arabic mushaf the next page is to the LEFT -->
-  <button class="tap tap-left" id="tap-next" aria-label="الصفحة التالية"></button>
-  <button class="tap tap-center" id="tap-menu" aria-label="القائمة"></button>
-  <button class="tap tap-right" id="tap-prev" aria-label="الصفحة السابقة"></button>
+  <footer class="foot">
+    Text &amp; fonts: Quran Foundation (quran.com) · King Fahd Complex
+  </footer>
 
-  <nav class="toolbar" id="toolbar" hidden>
-    <select id="surah-select" aria-label="السورة"></select>
-    <label class="page-jump">
-      <span>صفحة</span>
-      <input id="page-input" type="number" min="1" max="604" inputmode="numeric">
-    </label>
-    <button id="mode-btn" type="button" aria-label="وضع العرض"></button>
-    <button id="close-btn" type="button" aria-label="إغلاق">✕</button>
-  </nav>
-
-  <script src="app.js"></script>
+  <script src="shared.js"></script>
+  <script src="landing.js"></script>
 </body>
 </html>
