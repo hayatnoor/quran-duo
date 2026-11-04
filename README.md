@@ -8,7 +8,11 @@ A web app that displays the Quran as a two-page mushaf spread on unfolded / dual
 - Swipe or tap the edges to turn pages, arrow keys on a keyboard; tap the centre for surah/page navigation and display mode
 - Remembers your last page; `#p=50` links open a specific page
 
-## Run
+## Live
+
+https://hayatnoor.github.io/quran-duo/ (deployed from `public/` by GitHub Actions on every push to `main`)
+
+## Run locally
 
 ```
 npm start
