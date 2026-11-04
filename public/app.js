@@ -45,11 +45,15 @@ function computeDual() {
   const segs = window.viewport && window.viewport.segments;
   if (segs && segs.length === 2 && Math.abs(segs[0].top - segs[1].top) < 1) return true;
   if (window.matchMedia('(horizontal-viewport-segments: 2)').matches) return true;
-  // Unfolded inner screen: wide-ish and tall enough. Folded phone (portrait or landscape) → single.
+  // Unfolded inner screen held like an open book (wider than tall) → two pages.
+  // Rotating it to portrait, or a folded phone in any orientation → single page.
   const w = window.innerWidth;
   const h = window.innerHeight;
-  return w >= 560 && h >= 500 && w / h >= 0.8;
+  return w >= 560 && h >= 500 && w > h;
 }
+
+const isLandscape = () => window.innerWidth > window.innerHeight;
+let lastLandscape = isLandscape();
 
 function applyMode() {
   state.dual = computeDual();
@@ -339,6 +343,14 @@ function onResize() {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
     const wasDual = state.dual;
+    // Rotating the phone always hands control back to automatic mode, so a manual
+    // "two pages" choice doesn't stick after turning the open phone to portrait.
+    const landscape = isLandscape();
+    if (landscape !== lastLandscape && state.mode !== 'auto') {
+      state.mode = 'auto';
+      store.set('qd.mode', state.mode);
+    }
+    lastLandscape = landscape;
     applyMode();
     if (wasDual !== state.dual) render(); else refit();
   }, 120);
