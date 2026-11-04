@@ -124,7 +124,7 @@ body.dual #page-left  { border-radius: 2px 6px 6px 2px; box-shadow: inset -14px 
   line-height: 1.55;
   flex: 0 0 auto;
 }
-.line.center, .body.short .line { justify-content: center; gap: .18em; }
+.line.center, .body.short .line { justify-content: center; gap: var(--word-gap, .18em); }
 .line .w { display: inline-block; }
 .line .w.end { color: var(--accent); }
 

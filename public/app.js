@@ -9,6 +9,19 @@
 const { API, TOTAL_PAGES, SURAH_START, store, toArabic, escapeHtml } = QD;
 const PAGE_FONT_URL = (n) => `https://static.qurancdn.com/fonts/quran/hafs/v2/woff2/p${n}.woff2`;
 const LINES_PER_PAGE = 15;
+
+// Short lines that quran.com centres at normal word spacing instead of stretching edge to edge
+// (mostly the last line of a surah). Found by measuring all 8,807 lines; every other line is
+// within 5% of its page's width. Pages 1–2 are centred as a whole.
+const CENTERED_LINES = {
+  255: [2], 528: [9], 534: [6], 545: [6], 586: [1], 593: [2], 594: [5], 600: [10],
+  602: [5, 15], 603: [10, 15], 604: [4, 9, 14, 15],
+};
+
+// Upstream data corrections, each verified against quran.com's own page: page -> "verse:word" -> line.
+// p27: the API puts 2:181 word 5 (فَإِنَّمَآ) on line 14; quran.com shows it starting line 15,
+// which is also the only placement that gives both lines the page's normal width.
+const LINE_FIXES = { 27: { '2:181:5': 15 } };
 const BASMALA = 'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ';
 
 const $ = (id) => document.getElementById(id);
@@ -157,14 +170,16 @@ function buildLines(n, verses) {
 
   for (const v of verses) {
     const s = surahOf(v.verse_key);
-    for (const w of v.words) {
+    v.words.forEach((w, i) => {
       // Safety net: only words on this page (each glyph only exists in its own page's font).
-      if (w.page_number !== n) continue;
-      const ln = w.line_number;
+      if (w.page_number !== n) return;
+      const ln = LINE_FIXES[n]?.[`${v.verse_key}:${w.position}`] ?? w.line_number;
       if (!lines.has(ln)) lines.set(ln, { type: 'text', words: [] });
-      lines.get(ln).words.push({ code: w.code_v2, end: w.char_type_name === 'end' });
+      // A verse's last glyph is its number marker (the API mislabels 2:181's as a plain word).
+      const end = w.char_type_name === 'end' || i === v.words.length - 1;
+      lines.get(ln).words.push({ code: w.code_v2, end });
       if (v.verse_number === 1 && !firstLineOfSurah.has(s)) firstLineOfSurah.set(s, ln);
-    }
+    });
   }
 
   const putHeaders = (surah, ln) => {
@@ -194,7 +209,11 @@ function buildLines(n, verses) {
   }
 
   const out = [];
-  for (let i = firstLine; i <= total; i++) out.push(lines.get(i) || { type: 'blank' });
+  const centered = CENTERED_LINES[n] || [];
+  for (let i = firstLine; i <= total; i++) {
+    const l = lines.get(i) || { type: 'blank' };
+    out.push({ ...l, ln: i, center: l.type === 'text' && centered.includes(i) });
+  }
   return { lines: out, isShort, lastText };
 }
 
@@ -215,9 +234,8 @@ function pageHtml(n, verses) {
       case 'blank':
         return '<div class="line">&nbsp;</div>';
       default: {
-        // last line of a page often ends mid-verse and is centred in the printed mushaf only when short
         const words = l.words.map((w) => `<span class="w${w.end ? ' end' : ''}">${escapeHtml(w.code)}</span>`).join('');
-        return `<div class="line text" data-ln="${i + 1}" style="font-family:'${font}'">${words}</div>`;
+        return `<div class="line text${l.center ? ' center' : ''}" data-ln="${l.ln}" style="font-family:'${font}'">${words}</div>`;
       }
     }
   }).join('');
@@ -238,6 +256,7 @@ function statusHtml(msg, retry) {
 /**
  * Size the page: find the font size at which the widest mushaf line fits the width and all
  * lines fit the height, then justify every line to the width of that widest line.
+ * Centred (short) lines get the page's typical word spacing instead.
  */
 function fit(pageEl) {
   const body = pageEl.querySelector('.body');
@@ -252,7 +271,14 @@ function fit(pageEl) {
   const textLines = [...body.querySelectorAll('.line.text')];
   textLines.forEach((l) => { l.style.justifyContent = 'flex-start'; });
 
-  const widest = Math.max(1, ...textLines.map((l) => l.getBoundingClientRect().width));
+  const natural = textLines.map((l) => l.getBoundingClientRect().width);
+  const justified = textLines.map((l, i) => [l, natural[i]]).filter(([l]) => !l.classList.contains('center'));
+  const widest = Math.max(1, ...(justified.length ? justified : textLines.map((l, i) => [l, natural[i]])).map(([, w]) => w));
+  // typical gap between words on this page's justified lines, for the centred ones
+  const gaps = justified.filter(([l]) => l.children.length > 1)
+    .map(([l, w]) => (widest - w) / (l.children.length - 1)).sort((a, b) => a - b);
+  if (gaps.length) body.style.setProperty('--word-gap', (gaps[Math.floor(gaps.length / 2)] / REF).toFixed(3) + 'em');
+  else body.style.removeProperty('--word-gap');
   const lineCount = body.children.length;
   const lineH = body.children[0] ? body.children[0].getBoundingClientRect().height : REF * 1.6;
   const neededH = lineH * lineCount * (body.classList.contains('short') ? 1.25 : 1.04);
