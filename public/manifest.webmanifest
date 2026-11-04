@@ -1,0 +1,11 @@
+{
+  "name": "Quran Duo",
+  "short_name": "Quran Duo",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#f6efdf",
+  "theme_color": "#f6efdf",
+  "dir": "rtl",
+  "lang": "ar"
+}

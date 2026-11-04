@@ -1,0 +1,10 @@
+{
+  "name": "quran-duo",
+  "version": "1.0.0",
+  "description": "Two-page Quran mushaf viewer for unfolded / dual-screen phones",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "private": true
+}

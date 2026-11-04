@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <!-- viewport-fit=cover lets us use the full unfolded screen and respect safe areas -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#f6efdf" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#16130e" media="(prefers-color-scheme: dark)">
+  <title>Quran Duo</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="spread" class="spread" aria-live="polite">
+    <article class="page" id="page-right"></article>
+    <div class="hinge" aria-hidden="true"></div>
+    <article class="page" id="page-left"></article>
+  </main>
+
+  <!-- tap zones: in an Arabic mushaf the next page is to the LEFT -->
+  <button class="tap tap-left" id="tap-next" aria-label="الصفحة التالية"></button>
+  <button class="tap tap-center" id="tap-menu" aria-label="القائمة"></button>
+  <button class="tap tap-right" id="tap-prev" aria-label="الصفحة السابقة"></button>
+
+  <nav class="toolbar" id="toolbar" hidden>
+    <select id="surah-select" aria-label="السورة"></select>
+    <label class="page-jump">
+      <span>صفحة</span>
+      <input id="page-input" type="number" min="1" max="604" inputmode="numeric">
+    </label>
+    <button id="mode-btn" type="button" aria-label="وضع العرض"></button>
+    <button id="close-btn" type="button" aria-label="إغلاق">✕</button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>

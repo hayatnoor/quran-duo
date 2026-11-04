@@ -1,0 +1,260 @@
+:root {
+  --paper: #fbf6e9;
+  --paper-edge: #efe4c8;
+  --bg: #e9dfc6;
+  --ink: #1d1a14;
+  --muted: #7a6a48;
+  --accent: #8a6a1f;
+  --frame: #b89a52;
+  --toolbar: rgba(251, 246, 233, 0.96);
+
+  /* gutters respect the notch / rounded corners when unfolded */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --hinge: 0px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1f1b14;
+    --paper-edge: #2a241a;
+    --bg: #110f0b;
+    --ink: #efe6d0;
+    --muted: #b3a27a;
+    --accent: #d6b25e;
+    --frame: #6d5a2f;
+    --toolbar: rgba(31, 27, 20, 0.96);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+body { height: 100dvh; }
+
+/* ---------- Spread layout ---------- */
+.spread {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: row;          /* dir=rtl → first child (right page) sits on the right */
+  align-items: stretch;
+  padding: calc(var(--safe-t) + 8px) calc(var(--safe-r) + 8px) calc(var(--safe-b) + 8px) calc(var(--safe-l) + 8px);
+  gap: 0;
+}
+
+.page {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  border-radius: 6px;
+  padding: 2.2% 4% 1.6%;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.15);
+}
+
+/* decorative inner frame */
+.page::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1.5px solid var(--frame);
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: .55;
+}
+
+.hinge { display: none; flex: 0 0 auto; }
+
+/* Single-page mode (folded / portrait phone) */
+body.single #page-left,
+body.single .hinge { display: none; }
+
+/* Two-page mode (unfolded) */
+body.dual .hinge { display: block; width: var(--hinge); }
+body.dual #page-right { border-radius: 6px 2px 2px 6px; box-shadow: inset 14px 0 18px -14px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.15); }
+body.dual #page-left  { border-radius: 2px 6px 6px 2px; box-shadow: inset -14px 0 18px -14px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.15); }
+
+/* When the device reports a physical fold/hinge, align each page to its own screen segment.
+   (CSS Viewport Segments API – supported on dual-screen / foldable browsers.) */
+@media (horizontal-viewport-segments: 2) {
+  :root { --hinge: calc(env(viewport-segment-left 1 0, 0px) - env(viewport-segment-right 0 0, 0px)); }
+  body.dual .spread { padding-left: 0; padding-right: 0; }
+  body.dual .page { flex: 0 0 auto; width: env(viewport-segment-width 0 0, 50vw); }
+  body.dual .spread { justify-content: center; }
+}
+
+/* ---------- Page contents ---------- */
+.page-head, .page-foot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: "Amiri", serif;
+  color: var(--muted);
+  font-size: clamp(11px, 1.6vmin + 4px, 18px);
+  line-height: 1.4;
+  flex: 0 0 auto;
+}
+.page-head { padding-bottom: .35em; border-bottom: 1px solid var(--paper-edge); }
+.page-foot { justify-content: center; padding-top: .35em; }
+.page-foot .num {
+  display: inline-block;
+  min-width: 2.2em;
+  text-align: center;
+  border: 1px solid var(--frame);
+  border-radius: 999px;
+  padding: 0 .6em;
+}
+
+/* Fonts used by quran.com: surah-name ligatures + Uthmanic Hafs (KFGQPC) for the basmala.
+   Each mushaf page additionally gets its own QPC V2 font, loaded on demand from app.js. */
+@font-face {
+  font-family: "SurahNames";
+  src: url("https://static.qurancdn.com/fonts/quran/surah-names/v1/sura_names.woff2") format("woff2");
+  font-display: block;
+}
+@font-face {
+  font-family: "UthmanicHafs";
+  src: url("https://static.qurancdn.com/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.woff2") format("woff2");
+  font-display: block;
+}
+
+.body {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  justify-content: space-evenly;   /* 15 fixed lines spread over the page, like the printed mushaf */
+  padding: .15em 0;
+}
+.body.short { justify-content: center; gap: .35em; }
+
+/* .body font-size is set by fit(); everything below scales with it */
+.lines { width: 100%; display: contents; }
+
+.line {
+  display: flex;
+  flex-direction: row;               /* dir=rtl → first word on the right */
+  justify-content: space-between;    /* justify each line edge-to-edge, as quran.com does */
+  align-items: center;
+  width: var(--line-w, 100%);
+  white-space: nowrap;
+  line-height: 1.55;
+  flex: 0 0 auto;
+}
+.line.center, .body.short .line { justify-content: center; gap: .18em; }
+.line .w { display: inline-block; }
+.line .w.end { color: var(--accent); }
+
+.sura-header {
+  justify-content: center;
+  border: 1.5px solid var(--frame);
+  border-radius: .35em;
+  background: linear-gradient(90deg, transparent, var(--paper-edge) 15%, var(--paper-edge) 85%, transparent);
+  color: var(--accent);
+  line-height: 1.3;
+}
+.sura-header .name {
+  font-family: "SurahNames", "Amiri", serif;
+  font-size: 1.7em;
+  line-height: 1;
+  font-feature-settings: "liga" 1;
+}
+.basmala {
+  justify-content: center;
+  font-family: "UthmanicHafs", "Amiri Quran", serif;
+  font-size: 1.3em;
+  line-height: 1.2;
+}
+
+.status {
+  margin: auto;
+  font-family: "Amiri", serif;
+  color: var(--muted);
+  text-align: center;
+  font-size: 18px;
+}
+.status button {
+  margin-top: .6em;
+  font: inherit;
+  padding: .3em 1em;
+  border-radius: 8px;
+  border: 1px solid var(--frame);
+  background: transparent;
+  color: var(--ink);
+}
+
+/* ---------- Tap zones ---------- */
+.tap {
+  position: fixed;
+  top: 0; bottom: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  z-index: 5;
+  cursor: pointer;
+}
+.tap:focus { outline: none; }
+.tap-left   { left: 0;  width: 22%; }
+.tap-right  { right: 0; width: 22%; }
+.tap-center { left: 22%; right: 22%; }
+
+/* ---------- Toolbar ---------- */
+.toolbar {
+  position: fixed;
+  z-index: 10;
+  top: calc(var(--safe-t) + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--toolbar);
+  border: 1px solid var(--frame);
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.2);
+  font-family: "Amiri", serif;
+  font-size: 16px;
+  max-width: calc(100vw - 24px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.toolbar[hidden] { display: none; }
+.toolbar select, .toolbar input, .toolbar button {
+  font: inherit;
+  font-size: 16px; /* ≥16px prevents iOS zoom-on-focus */
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--frame);
+  border-radius: 8px;
+  padding: 4px 8px;
+  height: 36px;
+}
+.toolbar select { max-width: 52vw; }
+.toolbar input { width: 4.5em; text-align: center; }
+.page-jump { display: flex; align-items: center; gap: 6px; color: var(--muted); }
