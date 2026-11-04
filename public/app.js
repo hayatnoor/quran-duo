@@ -271,8 +271,11 @@ function fit(pageEl) {
   const textLines = [...body.querySelectorAll('.line.text')];
   textLines.forEach((l) => { l.style.justifyContent = 'flex-start'; });
 
-  const natural = textLines.map((l) => l.getBoundingClientRect().width);
-  const justified = textLines.map((l, i) => [l, natural[i]]).filter(([l]) => !l.classList.contains('center'));
+  // offsetWidth/Height are layout sizes, unaffected by the 3D transforms used while a page turns
+  const natural = textLines.map((l) => l.offsetWidth);
+  // pages 1–2 are centred as a whole; elsewhere only the CENTERED_LINES are
+  const isShortPage = body.classList.contains('short');
+  const justified = isShortPage ? [] : textLines.map((l, i) => [l, natural[i]]).filter(([l]) => !l.classList.contains('center'));
   const widest = Math.max(1, ...(justified.length ? justified : textLines.map((l, i) => [l, natural[i]])).map(([, w]) => w));
   // typical gap between words on this page's justified lines, for the centred ones
   const gaps = justified.filter(([l]) => l.children.length > 1)
@@ -280,7 +283,7 @@ function fit(pageEl) {
   if (gaps.length) body.style.setProperty('--word-gap', (gaps[Math.floor(gaps.length / 2)] / REF).toFixed(3) + 'em');
   else body.style.removeProperty('--word-gap');
   const lineCount = body.children.length;
-  const lineH = body.children[0] ? body.children[0].getBoundingClientRect().height : REF * 1.6;
+  const lineH = body.children[0] ? body.children[0].offsetHeight : REF * 1.6;
   const neededH = lineH * lineCount * (body.classList.contains('short') ? 1.25 : 1.04);
 
   const size = Math.max(6, Math.min((W * 0.985 * REF) / widest, (H * REF) / neededH, 90));
@@ -321,7 +324,11 @@ async function render() {
   if (token !== renderToken) return;
   targets.forEach(([el]) => fit(el));
 
-  // Prefetch neighbours (data + fonts) for instant page turns
+  prefetchAround(r);
+}
+
+/** Load the neighbouring pages (data + fonts) so page turns are instant. */
+function prefetchAround(r) {
   const step = state.dual ? 2 : 1;
   for (const n of [r + step, r + step + 1, r - step, r - step + 1]) {
     if (n >= 1 && n <= TOTAL_PAGES) { loadPage(n).catch(() => {}); loadPageFont(n).catch(() => {}); }
@@ -330,23 +337,201 @@ async function render() {
 
 function refit() { [els.right, els.left].forEach(fit); }
 
+/** Load page n and draw it, sized to fit, into `el` (any .page element that has a size). */
+async function fillPage(el, n) {
+  const [verses] = await Promise.all([loadPage(n), loadPageFont(n)]);
+  el.innerHTML = pageHtml(n, verses);
+  el.dataset.page = n;
+  await Promise.all([
+    document.fonts.load('20px SurahNames', 'surah001'),
+    document.fonts.load('20px UthmanicHafs', BASMALA),
+  ]).catch(() => {});
+  fit(el);
+}
+
+/* ---------------- page turning ---------------- */
+/**
+ * One page turn. Content is staged so that, at every angle, each visible face shows the right
+ * page; state (page number, hash, saved page) only changes when the turn completes.
+ *
+ *  Two pages, forward: the left page (front) turns over the spine to land on the right,
+ *    showing the next right page (back); the next left page is revealed beneath it.
+ *  Two pages, back: mirrored — the right page turns over to the left.
+ *  One page, forward: the page turns away about its right (binding) edge; the next is beneath.
+ *  One page, back: the previous page turns in over the current one.
+ */
+let activeTurn = null;
+
+function makeFace(sideClass) {
+  const f = document.createElement('div');
+  f.className = `page${sideClass ? ' ' + sideClass : ''}`;
+  return f;
+}
+
+class Turn {
+  constructor(dir) {
+    this.dir = dir;
+    this.settled = false;
+    this.ready = false;
+    this.failed = false;
+    const [r] = visiblePages();
+    if (state.dual) {
+      this.target = dir > 0 ? r + 2 : r - 2; // right-hand page of the new spread
+      const forward = dir > 0;
+      // the page that lifts, the page it lands on, and what goes where
+      this.lift = forward ? els.left : els.right;
+      this.land = forward ? els.right : els.left;
+      const newRight = this.target;
+      const newLeft = this.target + 1 <= TOTAL_PAGES ? this.target + 1 : null;
+      this.underPage = forward ? newLeft : newRight; // revealed in place of the lifted page
+      this.backPage = forward ? newRight : newLeft; // lands on the other side
+      const rect = this.lift.getBoundingClientRect();
+      this.front = makeFace(forward ? 'side-left' : 'side-right');
+      this.back = makeFace(forward ? 'side-right' : 'side-left');
+      this.saved = [...this.lift.childNodes];
+      this.savedPage = this.lift.dataset.page;
+      this.front.append(...this.saved);
+      this.lift.innerHTML = '';
+      this.pt = new Flip.PageTurn({
+        rect, hinge: forward ? 'right' : 'left', front: this.front, back: this.back,
+        under: rect, covered: this.land.getBoundingClientRect(), coveredEl: this.land,
+      });
+      this.loading = Promise.all([
+        this.underPage ? fillPage(this.lift, this.underPage) : Promise.resolve(),
+        this.backPage ? fillPage(this.back, this.backPage) : Promise.resolve(),
+      ]);
+    } else {
+      this.target = state.page + dir;
+      const rect = els.right.getBoundingClientRect();
+      if (dir > 0) {
+        // current page turns away, next page beneath
+        this.saved = [...els.right.childNodes];
+        this.savedPage = els.right.dataset.page;
+        this.front = makeFace('');
+        this.front.append(...this.saved);
+        els.right.innerHTML = '';
+        this.back = makeFace('blank');
+        this.pt = new Flip.PageTurn({ rect, hinge: 'right', maxAngle: 90, front: this.front, back: this.back, under: rect });
+        this.loading = fillPage(els.right, this.target);
+      } else {
+        // previous page turns in over the current one
+        this.front = makeFace('');
+        this.back = makeFace('blank');
+        this.pt = new Flip.PageTurn({ rect, hinge: 'right', maxAngle: 90, front: this.front, back: this.back, reverse: true, covered: rect, coveredEl: els.right });
+        this.loading = fillPage(this.front, this.target);
+      }
+    }
+    this.loading.then(() => { this.ready = true; }, () => { this.failed = true; });
+  }
+
+  drag(p) { if (!this.settled) this.pt.setProgress(p); }
+
+  /** Finish (commit) or spring back, animating from wherever the leaf is now. */
+  async release(commit, { fromDrag = false, quick = false } = {}) {
+    if (this.settled) return;
+    this.pt.target = commit ? 1 : 0; // if forced to finish early, end the way the user intended
+    if (commit && !this.ready && !this.failed) await Promise.race([this.loading, new Promise((r) => setTimeout(r, 1500))]).catch(() => {});
+    if (this.settled) return;
+    const t = await this.pt.animateTo(commit ? 1 : 0, { fromDrag, quick });
+    this.settle(t);
+  }
+
+  /** Jump to the end of this turn immediately (a drag that hasn't been released is cancelled). */
+  finishNow() {
+    if (this.settled) return;
+    this.forced = true;
+    this.pt.finishNow();
+    this.settle(this.pt.target);
+  }
+
+  settle(t) {
+    if (this.settled) return;
+    this.settled = true;
+    this.pt.destroy();
+    if (activeTurn === this) activeTurn = null;
+    if (t === 1) this.commit(); else this.cancel();
+    // a tap/key that arrived during this turn plays next
+    if (queued.length && !this.forced) {
+      const d = queued.shift();
+      requestAnimationFrame(() => turnPage(d, { quick: true }));
+    }
+  }
+
+  commit() {
+    if (state.dual) {
+      if (this.ready) {
+        this.land.replaceChildren(...this.back.childNodes);
+        this.land.dataset.page = this.backPage ?? '';
+        fit(this.land);
+      }
+    } else if (this.dir < 0 && this.ready) {
+      els.right.replaceChildren(...this.front.childNodes);
+      els.right.dataset.page = this.target;
+      fit(els.right);
+    }
+    commitPage(this.target);
+    // If the pages hadn't arrived (offline / slow), draw the new spread the normal way.
+    if (!this.ready) render(); else prefetchAround(visiblePages()[0]);
+  }
+
+  cancel() {
+    if (this.saved) {
+      const el = state.dual ? this.lift : els.right;
+      el.replaceChildren(...this.saved);
+      el.dataset.page = this.savedPage ?? '';
+    }
+  }
+}
+
+const queued = []; // taps/keys waiting for the current turn (up to 3)
+
+/** Stop any turn now (jumps, resizes, mode changes) and forget queued taps. */
+function settleTurns() {
+  queued.length = 0;
+  activeTurn?.finishNow();
+}
+
+/** Start a turn in direction dir (+1 forward, -1 back); null at the first/last page. */
+function startTurn(dir) {
+  activeTurn?.finishNow();
+  // pages still being drawn (e.g. after a jump): nothing stable to turn yet
+  const [r0, l0] = visiblePages();
+  if (els.right.dataset.page !== String(r0) || (l0 && els.left.dataset.page !== String(l0))) return null;
+  const [r] = visiblePages();
+  const ok = state.dual ? (dir > 0 ? r + 2 <= TOTAL_PAGES : r > 1) : (dir > 0 ? state.page < TOTAL_PAGES : state.page > 1);
+  if (!ok) return null;
+  renderToken++; // a turn takes over from any render still in flight
+  activeTurn = new Turn(dir);
+  return activeTurn;
+}
+
+function turnPage(dir, { quick = false } = {}) {
+  if (activeTurn && !activeTurn.settled) { // play after the current turn
+    if (queued.length < 3) queued.push(dir);
+    return;
+  }
+  const t = startTurn(dir);
+  if (t) t.release(true, { quick: quick || queued.length > 0 });
+}
+
 /* ---------------- navigation ---------------- */
-function goTo(n) {
+/** Record the current page (state, saved page, link, toolbar) without drawing anything. */
+function commitPage(n) {
   state.page = clampPage(n);
   store.set('qd.page', String(state.page));
   history.replaceState(null, '', `#p=${state.page}`);
   syncToolbar();
+}
+
+/** Jump straight to a page (surah picker, page box, links) — no animation. */
+function goTo(n) {
+  settleTurns();
+  commitPage(n);
   render();
 }
 
-function next() {
-  const [r] = visiblePages();
-  if (state.dual) { if (r + 2 <= TOTAL_PAGES) goTo(r + 2); } else goTo(state.page + 1);
-}
-function prev() {
-  const [r] = visiblePages();
-  if (state.dual) { if (r > 1) goTo(r - 2); } else goTo(state.page - 1);
-}
+const next = () => turnPage(1);
+const prev = () => turnPage(-1);
 
 function syncToolbar() {
   els.pageInput.value = state.page;
@@ -366,6 +551,7 @@ els.pageInput.addEventListener('change', () => goTo(parseInt(els.pageInput.value
 els.pageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') els.pageInput.blur(); });
 
 els.modeBtn.addEventListener('click', () => {
+  settleTurns();
   state.mode = { auto: 'dual', dual: 'single', single: 'auto' }[state.mode];
   store.set('qd.mode', state.mode);
   applyMode();
@@ -383,28 +569,79 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'Escape') toggleToolbar(false);
 });
 
-// Swipe: like turning an Arabic book, drag left→right to go forward.
-let touch = null;
-document.addEventListener('touchstart', (e) => {
-  if (e.touches.length === 1) touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
-}, { passive: true });
-document.addEventListener('touchend', (e) => {
-  if (!touch) return;
-  const dx = e.changedTouches[0].clientX - touch.x;
-  const dy = e.changedTouches[0].clientY - touch.y;
-  const fast = Date.now() - touch.t < 600;
-  touch = null;
-  if (fast && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-    e.preventDefault(); // suppress the tap-zone click
-    dx > 0 ? next() : prev();
+// Drag to turn: like an Arabic book, drag left→right to go forward, right→left to go back.
+// The leaf follows the finger (or mouse) and finishes or springs back on release.
+let drag = null;
+let suppressClickUntil = 0;
+
+function rubberBand(dx) {
+  const spread = $('spread');
+  spread.style.transition = 'none';
+  spread.style.transform = dx ? `translateX(${Math.sign(dx) * Math.min(28, Math.abs(dx) * 0.12)}px)` : '';
+}
+function releaseRubberBand() {
+  const spread = $('spread');
+  spread.style.transition = 'transform .25s ease-out';
+  spread.style.transform = '';
+}
+
+document.addEventListener('pointerdown', (e) => {
+  if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  if (e.target.closest('.toolbar')) return;
+  drag = { id: e.pointerId, x0: e.clientX, y0: e.clientY, turn: null, edge: false, dir: 0, samples: [[e.clientX, e.timeStamp]] };
+});
+
+document.addEventListener('pointermove', (e) => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const dx = e.clientX - drag.x0;
+  const dy = e.clientY - drag.y0;
+  drag.samples.push([e.clientX, e.timeStamp]);
+  if (drag.samples.length > 5) drag.samples.shift();
+
+  if (!drag.dir) {
+    if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+    drag.dir = dx > 0 ? 1 : -1;
+    drag.turn = startTurn(drag.dir);
+    drag.edge = !drag.turn; // first/last page: nothing to turn to
+    drag.width = (state.dual ? els.left : els.right).getBoundingClientRect().width;
+  }
+  e.preventDefault();
+  if (drag.edge) { rubberBand(dx); return; }
+  if (drag.turn && !drag.turn.pt.reduced) {
+    drag.turn.drag(Flip.progressFromDrag(Math.max(0, dx * drag.dir), drag.width, state.dual ? 180 : 90));
   }
 }, { passive: false });
+
+function endDrag(e, cancelled) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const d = drag;
+  drag = null;
+  if (!d.dir) return; // a tap: let the tap zones handle it
+  suppressClickUntil = performance.now() + 400;
+  if (d.edge) { releaseRubberBand(); return; }
+  if (!d.turn) return;
+  const dx = (e.clientX - d.x0) * d.dir;
+  // speed in the turn's direction over the last few moves (px/ms)
+  const [x1, t1] = d.samples[0];
+  const v = ((e.clientX - x1) * d.dir) / Math.max(1, e.timeStamp - t1);
+  const p = d.turn.pt.progress;
+  const commit = !cancelled && (d.turn.pt.reduced ? dx > 50 || v > 0.35 : p > 0.3 || (v > 0.35 && dx > 15));
+  d.turn.release(commit, { fromDrag: true });
+}
+document.addEventListener('pointerup', (e) => endDrag(e, false));
+document.addEventListener('pointercancel', (e) => endDrag(e, true));
+
+// A drag ends over a tap zone; don't let that also count as a tap.
+document.addEventListener('click', (e) => {
+  if (performance.now() < suppressClickUntil && e.target.closest('.tap')) { e.stopPropagation(); e.preventDefault(); }
+}, true);
 
 // Re-layout on fold/unfold, rotation, or resize
 let resizeTimer;
 function onResize() {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
+    settleTurns();
     syncViewport();
     const wasDual = state.dual;
     // Rotating the phone always hands control back to automatic mode, so a manual

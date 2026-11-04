@@ -8,7 +8,7 @@ html, body {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: manipulation;
+  touch-action: none;  /* page turns are driven by our own drag handling */
 }
 
 /* --app-w / --app-h are measured by app.js (iOS home-screen apps can misreport 100dvh
@@ -61,8 +61,8 @@ body.single .hinge { display: none; }
 
 /* Two-page mode (unfolded) */
 body.dual .hinge { display: block; width: var(--hinge); }
-body.dual #page-right { border-radius: 6px 2px 2px 6px; box-shadow: inset 14px 0 18px -14px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.15); }
-body.dual #page-left  { border-radius: 2px 6px 6px 2px; box-shadow: inset -14px 0 18px -14px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.15); }
+body.dual #page-right, .face.side-right { border-radius: 6px 2px 2px 6px; box-shadow: inset 14px 0 18px -14px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.15); }
+body.dual #page-left, .face.side-left  { border-radius: 2px 6px 6px 2px; box-shadow: inset -14px 0 18px -14px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.15); }
 
 /* When the device reports a physical fold/hinge, align each page to its own screen segment.
    (CSS Viewport Segments API – supported on dual-screen / foldable browsers.) */
@@ -223,4 +223,60 @@ body.dual #page-left  { border-radius: 2px 6px 6px 2px; box-shadow: inset -14px 
   display: inline-flex;
   align-items: center;
   text-decoration: none;
+}
+
+/* ---------- Page turn (see flip.js) ---------- */
+.flip-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 4;               /* above the pages, below the tap zones and toolbar */
+  pointer-events: none;
+  overflow: hidden;
+}
+.leaf {
+  position: absolute;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.leaf.hinge-right { transform-origin: 100% 50%; }
+.leaf.hinge-left  { transform-origin: 0% 50%; }
+.leaf .face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.leaf .face.back { transform: rotateY(180deg); }
+
+/* shading: the leaf darkens as it stands up, toward the spine */
+.leaf .face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
+}
+.leaf.hinge-right .face.front::after { background: linear-gradient(to left, rgba(0,0,0,.9), rgba(0,0,0,.35)); opacity: var(--front-shade, 0); }
+.leaf.hinge-left  .face.front::after { background: linear-gradient(to right, rgba(0,0,0,.9), rgba(0,0,0,.35)); opacity: var(--front-shade, 0); }
+.leaf.hinge-right .face.back::after  { background: linear-gradient(to right, rgba(0,0,0,.9), rgba(0,0,0,.3)); opacity: var(--back-shade, 0); }
+.leaf.hinge-left  .face.back::after  { background: linear-gradient(to left, rgba(0,0,0,.9), rgba(0,0,0,.3)); opacity: var(--back-shade, 0); }
+/* the back of a single page is plain paper */
+.leaf .face.blank > * { display: none; }
+
+/* the page being turned onto shows plain paper while the leaf lies over it */
+.page.flip-covered > * { visibility: hidden; }
+
+/* shadows cast on the page revealed beneath, and on the page the leaf lands on */
+.flip-shadow { position: absolute; pointer-events: none; border-radius: 6px; }
+.flip-shadow.under.hinge-right   { background: linear-gradient(to left, rgba(0,0,0,.55), transparent 55%); opacity: var(--under-shade, 0); }
+.flip-shadow.under.hinge-left    { background: linear-gradient(to right, rgba(0,0,0,.55), transparent 55%); opacity: var(--under-shade, 0); }
+.flip-shadow.covered.hinge-right { background: linear-gradient(to right, rgba(0,0,0,.5), transparent 65%); opacity: var(--covered-shade, 0); }
+.flip-shadow.covered.hinge-left  { background: linear-gradient(to left, rgba(0,0,0,.5), transparent 65%); opacity: var(--covered-shade, 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .leaf { will-change: opacity; }
+  .flip-shadow { display: none; }
 }
