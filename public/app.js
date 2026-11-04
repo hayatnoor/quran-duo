@@ -102,17 +102,18 @@ function visiblePages() {
 }
 
 /* ---------------- data ---------------- */
+// Same endpoint quran.com's reader uses. With mushaf=1 (QCF V2) it returns the page exactly as
+// laid out in the V2 mushaf that the page fonts belong to: only this page's words, V2 line numbers.
+// (The public v4 endpoint reports the older 1405-edition pages/lines, which don't always match.)
+const PAGE_URL = (n) =>
+  `https://api.qurancdn.com/api/qdc/verses/by_page/${n}?words=true&per_page=all&mushaf=1&filter_page_words=true` +
+  '&word_fields=verse_key,line_number,page_number,code_v2,char_type_name';
+
 async function fetchPageVerses(n) {
-  const verses = [];
-  for (let p = 1; p; ) {
-    const url = `${API}/verses/by_page/${n}?words=true&word_fields=code_v2,line_number&mushaf=1&per_page=50&page=${p}`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const j = await r.json();
-    verses.push(...j.verses);
-    p = j.pagination?.next_page || 0;
-  }
-  return verses;
+  const r = await fetch(PAGE_URL(n));
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const j = await r.json();
+  return j.verses;
 }
 
 function loadPage(n) {
@@ -157,6 +158,8 @@ function buildLines(n, verses) {
   for (const v of verses) {
     const s = surahOf(v.verse_key);
     for (const w of v.words) {
+      // Safety net: only words on this page (each glyph only exists in its own page's font).
+      if (w.page_number !== n) continue;
       const ln = w.line_number;
       if (!lines.has(ln)) lines.set(ln, { type: 'text', words: [] });
       lines.get(ln).words.push({ code: w.code_v2, end: w.char_type_name === 'end' });
@@ -176,7 +179,9 @@ function buildLines(n, verses) {
   for (const [s, ln] of firstLineOfSurah) putHeaders(s, ln);
 
   const isShort = n <= 2;
-  const total = isShort ? Math.max(...lines.keys()) : LINES_PER_PAGE;
+  const total = LINES_PER_PAGE;
+  // Pages 1–2 only fill the lower part of the 15-line grid; draw them from their first used line.
+  const firstLine = isShort ? Math.min(...lines.keys()) : 1;
 
   // Trailing empty lines → header (+ basmala) of the surah that begins on the next page
   const lastText = Math.max(...[...lines.entries()].filter(([, l]) => l.type === 'text').map(([k]) => k));
@@ -189,7 +194,7 @@ function buildLines(n, verses) {
   }
 
   const out = [];
-  for (let i = 1; i <= total; i++) out.push(lines.get(i) || { type: 'blank' });
+  for (let i = firstLine; i <= total; i++) out.push(lines.get(i) || { type: 'blank' });
   return { lines: out, isShort, lastText };
 }
 
