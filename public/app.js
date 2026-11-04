@@ -37,6 +37,39 @@ function clampPage(n) { return Math.min(TOTAL_PAGES, Math.max(1, Number.isFinite
 const surahOf = (verseKey) => parseInt(verseKey.split(':')[0], 10);
 const chapterName = (id) => chapters[id - 1]?.ar || `سورة ${toArabic(id)}`;
 
+/* ---------------- viewport ---------------- */
+/**
+ * The real size of the app's screen area.
+ * In an iOS home-screen app, WebKit sometimes reports a viewport shorter than the screen
+ * (by about the status-bar height) after navigating from another page, or leaves the page
+ * scrolled after the keyboard closes. A home-screen app always owns the whole screen, so
+ * when the screen's width matches, trust the screen's height instead.
+ */
+function viewportSize() {
+  let w = window.innerWidth;
+  let h = window.innerHeight;
+  if (navigator.standalone && screen.width && screen.height) {
+    const landscape = w > h;
+    const sw = landscape ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+    const sh = landscape ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+    if (Math.abs(sw - w) <= 2) h = Math.max(h, sh);
+  }
+  return { w, h };
+}
+
+let measured = { w: 0, h: 0 };
+/** Pin the layout to the measured size; returns true when it changed. */
+function syncViewport() {
+  if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+  const size = viewportSize();
+  if (size.w === measured.w && size.h === measured.h) return false;
+  measured = size;
+  const root = document.documentElement.style;
+  root.setProperty('--app-w', `${size.w}px`);
+  root.setProperty('--app-h', `${size.h}px`);
+  return true;
+}
+
 /* ---------------- layout mode ---------------- */
 function computeDual() {
   if (state.mode === 'dual') return true;
@@ -47,13 +80,12 @@ function computeDual() {
   if (window.matchMedia('(horizontal-viewport-segments: 2)').matches) return true;
   // Unfolded inner screen held like an open book (wider than tall) → two pages.
   // Rotating it to portrait, or a folded phone in any orientation → single page.
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const { w, h } = measured;
   return w >= 560 && h >= 500 && w > h;
 }
 
-const isLandscape = () => window.innerWidth > window.innerHeight;
-let lastLandscape = isLandscape();
+const isLandscape = () => measured.w > measured.h;
+let lastLandscape = false; // set at boot, after the first measurement
 
 function applyMode() {
   state.dual = computeDual();
@@ -342,6 +374,7 @@ let resizeTimer;
 function onResize() {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
+    syncViewport();
     const wasDual = state.dual;
     // Rotating the phone always hands control back to automatic mode, so a manual
     // "two pages" choice doesn't stick after turning the open phone to portrait.
@@ -359,6 +392,17 @@ window.addEventListener('resize', onResize);
 window.addEventListener('orientationchange', onResize);
 if (window.viewport && 'addEventListener' in window.viewport) window.viewport.addEventListener('change', onResize);
 window.matchMedia('(horizontal-viewport-segments: 2)').addEventListener?.('change', onResize);
+window.visualViewport?.addEventListener('resize', onResize);
+
+// iOS can change the viewport without a resize event: right after arriving from the surah
+// list, when returning to the app, or when the keyboard closes. Re-check at those moments.
+const recheckViewport = () => { if (syncViewport()) onResize(); };
+window.addEventListener('pageshow', () => { recheckViewport(); refit(); });
+window.addEventListener('focus', recheckViewport);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) recheckViewport(); });
+els.pageInput.addEventListener('blur', () => setTimeout(recheckViewport, 50));
+els.surah.addEventListener('blur', () => setTimeout(recheckViewport, 50));
+for (const ms of [50, 250, 600, 1200, 2500]) setTimeout(recheckViewport, ms);
 
 window.addEventListener('hashchange', () => {
   const p = parseInt(new URLSearchParams(location.hash.slice(1)).get('p'), 10);
@@ -366,6 +410,8 @@ window.addEventListener('hashchange', () => {
 });
 
 /* ---------------- boot ---------------- */
+syncViewport();
+lastLandscape = isLandscape();
 applyMode();
 syncToolbar();
 render();

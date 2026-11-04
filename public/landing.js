@@ -73,7 +73,11 @@ function showContinue() {
 
 list.addEventListener('click', (e) => {
   const a = e.target.closest('a.surah');
-  if (a) store.set('qd.page', a.dataset.page);
+  if (!a) return;
+  store.set('qd.page', a.dataset.page);
+  // Close the search keyboard first; opening the reader with it up leaves iOS
+  // with a shrunken/scrolled viewport.
+  if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
 });
 
 search.addEventListener('input', renderList);

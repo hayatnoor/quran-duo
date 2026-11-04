@@ -11,12 +11,17 @@ html, body {
   touch-action: manipulation;
 }
 
-body { height: 100dvh; }
+/* --app-w / --app-h are measured by app.js (iOS home-screen apps can misreport 100dvh
+   after navigating between pages); the CSS units are only the first-paint fallback. */
+html, body { height: var(--app-h, 100dvh); }
 
 /* ---------- Spread layout ---------- */
 .spread {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: var(--app-w, 100vw);
+  height: var(--app-h, 100dvh);
   display: flex;
   flex-direction: row;          /* dir=rtl → first child (right page) sits on the right */
   align-items: stretch;
@@ -164,7 +169,8 @@ body.dual #page-left  { border-radius: 2px 6px 6px 2px; box-shadow: inset -14px 
 /* ---------- Tap zones ---------- */
 .tap {
   position: fixed;
-  top: 0; bottom: 0;
+  top: 0;
+  height: var(--app-h, 100dvh);
   background: transparent;
   border: 0;
   padding: 0;
